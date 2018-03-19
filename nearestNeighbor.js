@@ -1,4 +1,5 @@
 const NearestNeighbor = (() => {
+  const NEAR_ZERO = 0.00000000001; // for use in removing divisions by zero
   
   function manhattanDistance(a, b) {
     return a.reduce((sum, aValue, index) => {
@@ -55,7 +56,11 @@ const NearestNeighbor = (() => {
         
         // distance weighting
         if (isDistanceWeighted) {
-          accum.votes[current.output] += 1/Math.pow(current.distance, 2);
+          let divisor = Math.pow(current.distance, 2);
+          if (divisor === 0) {
+            divisor = NEAR_ZERO;
+          }
+          accum.votes[current.output] += 1/divisor;
         }
         else {
           accum.votes[current.output]++;
@@ -81,12 +86,21 @@ const NearestNeighbor = (() => {
     else {
       
       let top = nearest.reduce((sum, neighbor) => {
-        return sum + neighbor.output / Math.pow(neighbor.distance, 2);
+        let divisor = Math.pow(neighbor.distance, 2);
+        if (divisor === 0) {
+          divisor = NEAR_ZERO;
+        }
+        return sum + neighbor.output / divisor;
       }, 0);
       let bottom = nearest.reduce((sum, neighbor) => {
-        return sum + 1 / Math.pow(neighbor.distance, 2);
+        let divisor = Math.pow(neighbor.distance, 2);
+        if (divisor === 0) {
+          divisor = NEAR_ZERO;
+        }
+        return sum + 1 / divisor;
       }, 0);
       
+      const value = top / bottom;      
       return top / bottom;
     }
   }
@@ -119,7 +133,21 @@ const NearestNeighbor = (() => {
   };
 })();
 
-// set module exports if in node
-if (typeof module !== 'undefined' && typeof module === 'object') {
+if (require && require.hasOwnProperty('main') && require.main === module) {
+  // script called from CLI
+  
+  process.on('message', (data) => {
+    const result = NearestNeighbor.run(data.kValue, data.trainPatterns, data.trainTargets, data.testPatterns, data.testTargets, data.weighted, data.regression);
+    
+    delete result.outputs;
+    
+    console.log(result);
+    
+    process.send(result);
+    process.exit();
+  });
+}
+else if (module && module.hasOwnProperty('exports')) {
+  // script called in require
   Object.assign(module.exports, NearestNeighbor);
 }
